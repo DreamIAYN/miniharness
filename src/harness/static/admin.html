@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mini-harness · 用户与额度控制台</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --ink: #111827;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --brand: #4f46e5;
+    --brand-2: #7c3aed;
+    --ok: #059669;
+    --warn: #d97706;
+    --bad: #dc2626;
+    --shadow: 0 10px 30px rgba(17, 24, 39, .08);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(1200px 500px at 10% -10%, #e0e7ff 0%, transparent 55%),
+      radial-gradient(900px 400px at 100% 0%, #ede9fe 0%, transparent 50%),
+      var(--bg);
+    color: var(--ink);
+  }
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+
+  /* ---------- login ---------- */
+  .login-wrap {
+    min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  }
+  .login-card {
+    width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 34px; box-shadow: var(--shadow);
+  }
+  .logo {
+    width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+    font-weight: 800; font-size: 20px; letter-spacing: -1px; margin-bottom: 18px;
+  }
+  .login-card h1 { font-size: 22px; margin: 0 0 6px; }
+  .login-card p { color: var(--muted); font-size: 14px; margin: 0 0 22px; line-height: 1.6; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .input {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
+    background: #fbfcfe; outline: none; transition: .15s;
+  }
+  .input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.12); background: #fff; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.5; }
+  .btn {
+    border: 1px solid transparent; border-radius: 10px; padding: 10px 15px;
+    font-weight: 600; font-size: 14px; transition: .15s; background: #fff; color: var(--ink);
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; }
+  .btn-ghost { border-color: var(--line); }
+  .btn-danger { color: var(--bad); border-color: #fecaca; background: #fff5f5; }
+  .btn-sm { padding: 6px 10px; font-size: 12.5px; border-radius: 8px; }
+  .btn-block { width: 100%; padding: 12px; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+  /* ---------- shell ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 18px 30px; border-bottom: 1px solid rgba(229,231,235,.8);
+    background: rgba(255,255,255,.78); backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo { width: 36px; height: 36px; margin: 0; font-size: 16px; border-radius: 10px; }
+  .brand h1 { font-size: 16px; margin: 0; letter-spacing: -.2px; }
+  .brand span { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 9px; }
+  .main { max-width: 1280px; margin: 0 auto; padding: 26px 30px 60px; }
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; }
+  .section-title h2 { font-size: 17px; margin: 0; }
+  .section-title p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+
+  .stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 15px 16px; box-shadow: 0 2px 8px rgba(17,24,39,.03);
+  }
+  .stat .k { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .stat .v { font-size: 22px; font-weight: 750; margin-top: 6px; letter-spacing: -.5px; }
+  .stat .v small { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 15px 16px; border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .toolbar .grow { flex: 1; }
+  .search { position: relative; width: min(320px, 100%); }
+  .search .input { padding-left: 36px; background: #fbfcfe; }
+  .search::before {
+    content: "⌕"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 18px; line-height: 1;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; padding: 12px 16px; background: #fafbfe;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  td { padding: 13px 16px; border-bottom: 1px solid #f1f2f6; vertical-align: middle; }
+  tbody tr:hover { background: #fafbff; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .user-cell { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #eef2ff, #ede9fe); color: var(--brand);
+    font-weight: 800; font-size: 13px; flex: none;
+  }
+  .user-cell .name { font-weight: 650; line-height: 1.25; }
+  .user-cell .email { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 999px;
+    padding: 4px 9px; font-size: 11.5px; font-weight: 650;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill-ok { background: #ecfdf5; color: var(--ok); }
+  .pill-off { background: #f3f4f6; color: var(--muted); }
+  .quota { min-width: 150px; }
+  .quota .nums { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .quota .nums b { color: var(--ink); font-weight: 650; }
+  .bar { height: 6px; border-radius: 999px; background: #eef0f5; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .bar.warn > i { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+  .bar.over > i { background: var(--bad); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .empty { padding: 46px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+  .empty b { display: block; color: var(--ink); margin-bottom: 4px; }
+
+  /* ---------- modal ---------- */
+  .modal {
+    position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+    padding: 20px; background: rgba(17,24,39,.45); backdrop-filter: blur(3px);
+  }
+  .modal.open { display: flex; }
+  .modal-card {
+    width: min(620px, 100%); max-height: min(86vh, 760px); overflow: auto;
+    background: #fff; border-radius: 18px; box-shadow: 0 30px 80px rgba(17,24,39,.28);
+    animation: pop .16s ease-out;
+  }
+  @keyframes pop { from { transform: translateY(8px) scale(.985); opacity: .6; } }
+  .modal-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding: 20px 22px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0;
+    background: #fff; z-index: 1;
+  }
+  .modal-head h3 { margin: 0; font-size: 17px; }
+  .modal-head p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
+  .x {
+    border: 0; background: #f3f4f6; width: 30px; height: 30px; border-radius: 8px;
+    color: var(--muted); font-size: 17px; line-height: 1;
+  }
+  .modal-body { padding: 20px 22px 22px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+  .secret {
+    margin-top: 14px; border: 1px dashed #c7d2fe; background: #eef2ff; border-radius: 11px; padding: 13px;
+  }
+  .secret .label { font-size: 11.5px; font-weight: 700; color: var(--brand); letter-spacing: .03em; }
+  .secret .key {
+    display: flex; align-items: center; gap: 8px; margin-top: 7px;
+    background: #fff; border: 1px solid #dbe3ff; border-radius: 8px; padding: 8px 10px;
+  }
+  .secret .key code { flex: 1; overflow-wrap: anywhere; }
+  .notice { border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.55; }
+  .notice-warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .notice-ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .list-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  }
+  .list-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .tag { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 6px; background: #f3f4f6; color: var(--muted); }
+  .tag.revoked { background: #fef2f2; color: var(--bad); }
+  .tag.sub { background: #eef2ff; color: var(--brand); }
+  .event-table td, .event-table th { padding: 9px 10px; font-size: 12.5px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .summary-grid .box { border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+  .summary-grid .box .k { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .summary-grid .box .v { font-size: 18px; font-weight: 750; margin-top: 3px; }
+  .call-detail h4 { margin: 16px 0 8px; font-size: 13px; }
+  .transcript {
+    max-height: 38vh; overflow: auto; border: 1px solid var(--line);
+    border-radius: 10px; background: #fbfcfe;
+  }
+  .transcript .msg { padding: 10px 12px; border-bottom: 1px solid #f1f2f6; }
+  .transcript .msg:last-child { border-bottom: 0; }
+  .msg-role {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  .transcript pre, .body-pre {
+    margin: 0; white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.55; color: var(--ink);
+  }
+  .body-pre {
+    max-height: 35vh; overflow: auto; background: #fbfcfe;
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+  }
+  .msg-image {
+    display: block; max-width: 100%; max-height: 320px; border-radius: 8px;
+    margin: 8px 0; border: 1px solid var(--line);
+  }
+  .live-step {
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    margin: 8px 0; background: #fbfcfe;
+  }
+  .live-step summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .live-step .body-pre { margin-top: 8px; max-height: 22vh; }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed; right: 22px; bottom: 22px; z-index: 100; display: flex;
+    flex-direction: column; gap: 8px; align-items: flex-end;
+  }
+  .toast {
+    background: #111827; color: #fff; border-radius: 10px; padding: 11px 15px;
+    font-size: 13px; box-shadow: 0 16px 40px rgba(17,24,39,.25); max-width: 380px;
+    animation: slide .18s ease-out;
+  }
+  .toast.err { background: #b91c1c; }
+  .toast.ok { background: #047857; }
+  @keyframes slide { from { transform: translateY(6px); opacity: 0; } }
+
+  @media (max-width: 1100px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 720px) {
+    .topbar { padding: 14px 16px; }
+    .main { padding: 18px 16px 50px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row, .summary-grid { grid-template-columns: 1fr; }
+    .brand span { display: none; }
+    th:nth-child(5), td:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="logo">H</div>
+    <h1>mini-harness 控制台</h1>
+    <p>管理用户、API Key 与 token 额度。请输入服务端配置的 <code>HARNESS_ADMIN_TOKEN</code>。</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="admin-token">Admin Token</label>
+        <input id="admin-token" class="input mono" type="password" autocomplete="off" placeholder="粘贴 admin token" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">连接</button>
+    </form>
+    <p class="hint">Token 只保存在当前标签页的 sessionStorage 中，不会写入磁盘。</p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">H</div>
+      <div>
+        <h1>mini-harness</h1>
+        <span>用户与额度控制台</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="live-btn" class="btn btn-ghost btn-sm" type="button">运行中</button>
+      <button id="history-btn" class="btn btn-ghost btn-sm" type="button">调用历史</button>
+      <button id="refresh-btn" class="btn btn-ghost btn-sm" type="button">刷新</button>
+      <button id="logout-btn" class="btn btn-ghost btn-sm" type="button">退出</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="stats" id="stats"></div>
+
+    <div class="section-title">
+      <div>
+        <h2>用户</h2>
+        <p>额度按 token 计量；剩余额度为 0 时新的 agent 请求会被拒绝，进行中的请求最多超额一次模型调用。</p>
+      </div>
+      <button id="create-btn" class="btn btn-primary" type="button">＋ 新建用户</button>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <div class="search grow">
+          <input id="search" class="input" type="search" placeholder="搜索邮箱或姓名…">
+        </div>
+        <span id="total-label" class="hint" style="margin:0"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>状态</th>
+              <th>额度</th>
+              <th>Key</th>
+              <th>创建时间</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            <tr><td colspan="6"><div class="empty"><b>加载中…</b></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="modal" class="modal" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h3 id="modal-title">标题</h3>
+        <p id="modal-subtitle"></p>
+      </div>
+      <button id="modal-close" class="x" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const state = {
+    token: sessionStorage.getItem("harness_admin_token") || "",
+    users: [],
+    stats: null,
+    search: "",
+    liveAbort: null
+  };
+
+  const $ = (sel, el = document) => el.querySelector(sel);
+  const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+
+  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[ch]);
+
+  const num = (value) => Number(value || 0).toLocaleString("zh-CN");
+
+  const fmtDate = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return esc(iso);
+    return d.toLocaleString("zh-CN", { hour12: false });
+  };
+
+  function toast(message, kind = "") {
+    const el = document.createElement("div");
+    el.className = "toast " + kind;
+    el.textContent = message;
+    $("#toast").appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
+  async function api(path, { method = "GET", body, token = state.token } = {}) {
+    const headers = { "X-Admin-Token": token };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const res = await fetch(path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    if (!res.ok) {
+      let message = `请求失败（HTTP ${res.status}）`;
+      try {
+        const data = await res.json();
+        message = data?.error?.message || data?.detail || message;
+      } catch (_) { /* ignore */ }
+      const error = new Error(message);
+      error.status = res.status;
+      if (res.status === 401) logout(true);
+      throw error;
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  // ---------------- auth ----------------
+  function showApp(loggedIn) {
+    $("#login").classList.toggle("hidden", loggedIn);
+    $("#app").classList.toggle("hidden", !loggedIn);
+  }
+
+  function logout(silent = false) {
+    state.token = "";
+    sessionStorage.removeItem("harness_admin_token");
+    showApp(false);
+    closeModal();
+    if (!silent) toast("已退出");
+  }
+
+  async function login(token) {
+    const data = await api("/admin/stats", { token });
+    state.token = token;
+    sessionStorage.setItem("harness_admin_token", token);
+    showApp(true);
+    state.stats = data;
+    await loadAll();
+  }
+
+  $("#login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const token = $("#admin-token").value.trim();
+    if (!token) return;
+    const button = event.target.querySelector("button");
+    button.disabled = true;
+    button.textContent = "连接中…";
+    try {
+      await login(token);
+      toast("已连接", "ok");
+    } catch (error) {
+      toast(error.message, "err");
+    } finally {
+      button.disabled = false;
+      button.textContent = "连接";
+    }
+  });
+
+  $("#logout-btn").addEventListener("click", () => logout());
+  $("#refresh-btn").addEventListener("click", () => loadAll(true));
+  $("#live-btn").addEventListener("click", openLiveRuns);
+  $("#history-btn").addEventListener("click", openHistory);
+
+  // ---------------- data ----------------
+  async function loadAll(notify = false) {
+    try {
+      const query = state.search ? `?q=${encodeURIComponent(state.search)}&limit=200` : "?limit=200";
+      const [stats, users] = await Promise.all([
+        api("/admin/stats"),
+        api("/admin/users" + query)
+      ]);
+      state.stats = stats;
+      state.users = users.items;
+      renderStats();
+      renderUsers(users.total);
+      if (notify) toast("已刷新", "ok");
+    } catch (error) {
+      if (error.status !== 401) toast(error.message, "err");
+    }
+  }
+
+  function renderStats() {
+    const s = state.stats || {};
+    const items = [
+      ["用户总数", num(s.users)],
+      ["启用用户", num(s.active_users)],
+      ["有效 Key", num(s.active_keys)],
+      ["累计 tokens", num(s.total_tokens)],
+      ["今日 tokens", num(s.tokens_today)],
+      ["累计 runs", num(s.runs)]
+    ];
+    $("#stats").innerHTML = items.map(([k, v]) => `
+      <div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>
+    `).join("");
+  }
+
+  function quotaCell(user) {
+    if (user.unlimited) {
+      return `<div class="quota"><div class="nums"><span>已用 <b>${num(user.used_tokens)}</b></span><span>不限量</span></div>
+        <div class="bar"><i style="width:100%;opacity:.25"></i></div></div>`;
+    }
+    const quota = Math.max(1, user.quota_tokens);
+    const pct = Math.min(100, Math.round((user.used_tokens / quota) * 100));
+    const cls = pct >= 100 ? "bar over" : pct >= 80 ? "bar warn" : "bar";
+    return `<div class="quota">
+      <div class="nums"><span>已用 <b>${num(user.used_tokens)}</b> / ${num(user.quota_tokens)}</span><span>剩余 ${num(user.remaining_tokens)}</span></div>
+      <div class="${cls}"><i style="width:${pct}%"></i></div>
+    </div>`;
+  }
+
+  function renderUsers(total) {
+    const tbody = $("#users-body");
+    $("#total-label").textContent = total === undefined ? "" : `共 ${total} 个用户`;
+    if (!state.users.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><b>还没有用户</b>点击右上角“新建用户”创建第一个账号。</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = state.users.map((user) => {
+      const initial = (user.name || user.email || "?").trim().charAt(0).toUpperCase();
+      const active = user.status === "active";
+      return `<tr>
+        <td>
+          <div class="user-cell">
+            <div class="avatar">${esc(initial)}</div>
+            <div>
+              <div class="name">${esc(user.name || "未命名")}</div>
+              <div class="email">${esc(user.email)}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="pill ${active ? "pill-ok" : "pill-off"}">${active ? "启用" : "已禁用"}</span></td>
+        <td>${quotaCell(user)}</td>
+        <td><span class="mono">${user.active_keys}</span> 个</td>
+        <td class="mono" style="color:var(--muted)">${fmtDate(user.created_at)}</td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" data-action="usage" data-id="${esc(user.id)}">用量</button>
+            <button class="btn btn-ghost btn-sm" data-action="keys" data-id="${esc(user.id)}">Keys</button>
+            <button class="btn btn-ghost btn-sm" data-action="quota" data-id="${esc(user.id)}">额度</button>
+            <button class="btn btn-ghost btn-sm" data-action="toggle" data-id="${esc(user.id)}">${active ? "禁用" : "启用"}</button>
+            <button class="btn btn-danger btn-sm" data-action="reset" data-id="${esc(user.id)}">重置</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ---------------- modal ----------------
+  function openModal(title, subtitle, html) {
+    if (state.liveAbort) {
+      state.liveAbort.abort();
+      state.liveAbort = null;
+    }
+    $("#modal-title").textContent = title;
+    $("#modal-subtitle").textContent = subtitle || "";
+    $("#modal-body").innerHTML = html;
+    $("#modal").classList.add("open");
+    $("#modal").setAttribute("aria-hidden", "false");
+  }
+
+  function closeModal() {
+    if (state.liveAbort) {
+      state.liveAbort.abort();
+      state.liveAbort = null;
+    }
+    $("#modal").classList.remove("open");
+    $("#modal").setAttribute("aria-hidden", "true");
+    $("#modal-body").innerHTML = "";
+  }
+
+  $("#modal-close").addEventListener("click", closeModal);
+  $("#modal").addEventListener("click", (event) => {
+    if (event.target === $("#modal")) closeModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeModal();
+  });
+
+  function userById(id) {
+    return state.users.find((user) => user.id === id);
+  }
+
+  function showSecret(rawKey) {
+    return `<div class="secret">
+      <div class="label">新 API Key（只显示这一次）</div>
+      <div class="key"><code class="mono" id="secret-key">${esc(rawKey)}</code>
+        <button class="btn btn-ghost btn-sm" type="button" id="copy-key">复制</button></div>
+      <div class="hint">请立即保存；服务端只保存 SHA-256 摘要，关闭后无法再次查看。</div>
+    </div>`;
+  }
+
+  function bindCopy() {
+    const button = $("#copy-key");
+    if (!button) return;
+    button.addEventListener("click", async () => {
+      const key = $("#secret-key").textContent;
+      try {
+        await navigator.clipboard.writeText(key);
+        toast("已复制", "ok");
+      } catch (_) {
+        toast("复制失败，请手动选择", "err");
+      }
+    });
+  }
+
+  // ---------------- actions ----------------
+  $("#create-btn").addEventListener("click", () => {
+    openModal("新建用户", "创建用户并签发第一个 API Key", `
+      <form id="create-form">
+        <div class="row">
+          <div class="field"><label>邮箱</label><input class="input" name="email" type="email" placeholder="user@example.com" required></div>
+          <div class="field"><label>姓名</label><input class="input" name="name" placeholder="张三"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Token 额度</label><input class="input" name="quota_tokens" type="number" min="-1" step="1000" value="100000">
+            <div class="hint">-1 表示不限量</div></div>
+          <div class="field"><label>Key 名称</label><input class="input" name="key_name" value="default"></div>
+        </div>
+        <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:4px">
+          <input type="checkbox" name="issue_key" checked> 创建后立即签发 API Key
+        </label>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" type="button" data-close>取消</button>
+          <button class="btn btn-primary" type="submit">创建用户</button>
+        </div>
+      </form>
+      <div id="create-result"></div>
+    `);
+    $("#create-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.target);
+      const button = event.target.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = "创建中…";
+      try {
+        const payload = {
+          email: String(form.get("email") || "").trim(),
+          name: String(form.get("name") || "").trim(),
+          key_name: String(form.get("key_name") || "default").trim() || "default",
+          issue_key: form.get("issue_key") === "on"
+        };
+        const quota = String(form.get("quota_tokens") || "").trim();
+        if (quota !== "") payload.quota_tokens = Number(quota);
+        const result = await api("/admin/users", { method: "POST", body: payload });
+        if (result.api_key) {
+          $("#create-result").innerHTML = showSecret(result.api_key);
+          bindCopy();
+          event.target.classList.add("hidden");
+          $("#modal-subtitle").textContent = "用户已创建，请保存 API Key";
+        } else {
+          closeModal();
+          toast("用户已创建", "ok");
+        }
+        await loadAll();
+      } catch (error) {
+        toast(error.message, "err");
+      } finally {
+        button.disabled = false;
+        button.textContent = "创建用户";
+      }
+    });
+  });
+
+  $("#users-body").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    const user = userById(button.dataset.id);
+    if (!user) return;
+    const action = button.dataset.action;
+
+    if (action === "toggle") {
+      const next = user.status === "active" ? "disabled" : "active";
+      if (!confirm(`确定要${next === "active" ? "启用" : "禁用"} ${user.email} 吗？`)) return;
+      try {
+        await api(`/admin/users/${user.id}`, { method: "PATCH", body: { status: next } });
+        toast(next === "active" ? "已启用" : "已禁用", "ok");
+        await loadAll();
+      } catch (error) { toast(error.message, "err"); }
+      return;
+    }
+
+    if (action === "reset") {
+      if (!confirm(`确定要重置 ${user.email} 的本期 token 用量吗？历史流水会保留。`)) return;
+      try {
+        await api(`/admin/users/${user.id}/usage/reset`, { method: "POST" });
+        toast("已重置本期用量", "ok");
+        await loadAll();
+      } catch (error) { toast(error.message, "err"); }
+      return;
+    }
+
+    if (action === "quota") {
+      openModal("调整额度", user.email, `
+        <form id="quota-form">
+          <div class="field">
+            <label>Token 额度</label>
+            <input class="input" name="quota_tokens" type="number" min="-1" step="1000" value="${esc(user.quota_tokens)}" required>
+            <div class="hint">-1 表示不限量；调低额度不会自动重置已用 token。当前已用 ${num(user.used_tokens)}。</div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-close>取消</button>
+            <button class="btn btn-primary" type="submit">保存</button>
+          </div>
+        </form>
+      `);
+      $("#quota-form").addEventListener("submit", async (submitEvent) => {
+        submitEvent.preventDefault();
+        const quota = Number(new FormData(submitEvent.target).get("quota_tokens"));
+        if (!Number.isFinite(quota) || quota < -1) { toast("额度必须 >= -1", "err"); return; }
+        try {
+          await api(`/admin/users/${user.id}`, { method: "PATCH", body: { quota_tokens: quota } });
+          closeModal();
+          toast("额度已更新", "ok");
+          await loadAll();
+        } catch (error) { toast(error.message, "err"); }
+      });
+      return;
+    }
+
+    if (action === "keys") {
+      openModal("API Keys", user.email + " · 最多可签发多个 Key", `<div id="keys-panel">加载中…</div>`);
+      await renderKeys(user);
+      return;
+    }
+
+    if (action === "usage") {
+      openModal("用量明细", user.email, `<div id="usage-panel">加载中…</div>`);
+      await renderUsage(user);
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close]")) closeModal();
+  });
+
+  async function renderKeys(user) {
+    const panel = $("#keys-panel");
+    try {
+      const keys = await api(`/admin/users/${user.id}/keys`);
+      panel.innerHTML = `
+        <form id="key-form" style="display:flex;gap:8px;margin-bottom:14px">
+          <input class="input" name="name" placeholder="Key 名称，例如 prod-backend" style="flex:1">
+          <button class="btn btn-primary" type="submit">签发新 Key</button>
+        </form>
+        <div id="key-secret"></div>
+        <div class="list">
+          ${keys.length ? keys.map((key) => `
+            <div class="list-item">
+              <div>
+                <div class="mono">${esc(key.prefix)}… <span class="tag ${key.revoked_at ? "revoked" : ""}">${key.revoked_at ? "已吊销" : "有效"}</span></div>
+                <div class="meta">${esc(key.name)} · 创建于 ${fmtDate(key.created_at)} · 最近使用 ${fmtDate(key.last_used_at)}</div>
+              </div>
+              ${key.revoked_at ? "" : `<button class="btn btn-danger btn-sm" data-revoke="${esc(key.id)}">吊销</button>`}
+            </div>
+          `).join("") : `<div class="empty" style="padding:24px"><b>还没有 Key</b>使用上方表单签发。</div>`}
+        </div>
+      `;
+
+      $("#key-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const name = String(new FormData(event.target).get("name") || "default").trim() || "default";
+        try {
+          const result = await api(`/admin/users/${user.id}/keys`, { method: "POST", body: { name } });
+          await renderKeys(user);
+          $("#key-secret").innerHTML = showSecret(result.api_key);
+          bindCopy();
+          await loadAll();
+        } catch (error) { toast(error.message, "err"); }
+      });
+
+      $$("[data-revoke]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (!confirm("吊销后该 Key 立即失效，确定继续？")) return;
+          try {
+            await api(`/admin/users/${user.id}/keys/${button.dataset.revoke}`, { method: "DELETE" });
+            toast("Key 已吊销", "ok");
+            await renderKeys(user);
+            await loadAll();
+          } catch (error) { toast(error.message, "err"); }
+        });
+      });
+    } catch (error) {
+      panel.innerHTML = `<div class="notice notice-warn">${esc(error.message)}</div>`;
+    }
+  }
+
+  async function renderUsage(user) {
+    const panel = $("#usage-panel");
+    try {
+      const data = await api(`/admin/users/${user.id}/usage?limit=100`);
+      const s = data.summary;
+      panel.innerHTML = `
+        <div class="summary-grid">
+          <div class="box"><div class="k">额度</div><div class="v">${s.unlimited ? "不限" : num(s.quota_tokens)}</div></div>
+          <div class="box"><div class="k">本期已用</div><div class="v">${num(s.used_tokens)}</div></div>
+          <div class="box"><div class="k">剩余</div><div class="v">${s.unlimited ? "∞" : num(s.remaining_tokens)}</div></div>
+        </div>
+        <p class="hint" style="margin-top:0">本期起点：${fmtDate(s.period_start)}</p>
+        <div class="table-wrap" style="max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+          <table class="event-table">
+            <thead><tr><th>时间</th><th>Run</th><th>模型</th><th>Prompt</th><th>Completion</th><th>Total</th></tr></thead>
+            <tbody>
+              ${data.events.length ? data.events.map((e) => `<tr>
+                <td class="mono">${fmtDate(e.created_at)}</td>
+                <td class="mono">${esc(e.run_id.slice(0, 14))}…</td>
+                <td>${esc(e.model)}</td>
+                <td>${num(e.prompt_tokens)}</td>
+                <td>${num(e.completion_tokens)}</td>
+                <td><b>${num(e.total_tokens)}</b></td>
+              </tr>`).join("") : `<tr><td colspan="6"><div class="empty" style="padding:24px">本期还没有用量</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (error) {
+      panel.innerHTML = `<div class="notice notice-warn">${esc(error.message)}</div>`;
+    }
+  }
+
+  // ---------------- global call history ----------------
+  function openHistory() {
+    openModal("调用历史", "最近 300 次模型调用（仅元数据）", `
+      <div class="toolbar" style="padding:0 0 12px;border:0">
+        <div class="search grow">
+          <input id="history-search" class="input" type="search" placeholder="搜索邮箱、姓名或 run_id…">
+        </div>
+        <button id="history-refresh" class="btn btn-ghost btn-sm" type="button">刷新</button>
+      </div>
+      <div id="history-panel"><div class="empty"><b>加载中…</b></div></div>
+    `);
+    const search = $("#history-search");
+    let timer = null;
+    search.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => renderCallHistory(search.value.trim()), 250);
+    });
+    $("#history-refresh").addEventListener("click", () => renderCallHistory(search.value.trim()));
+    renderCallHistory("");
+  }
+
+  async function renderCallHistory(query) {
+    const panel = $("#history-panel");
+    if (!panel) return;
+    try {
+      const params = new URLSearchParams({ limit: "300" });
+      if (query) params.set("q", query);
+      const data = await api(`/admin/usage?${params.toString()}`);
+      if (!data.items.length) {
+        panel.innerHTML = `<div class="empty"><b>没有匹配的调用</b>换个邮箱、姓名或 run_id 试试。</div>`;
+        return;
+      }
+      const rows = data.items.map((call) => {
+        const shortRun = call.run_id.length > 20 ? call.run_id.slice(0, 20) + "…" : call.run_id;
+        const key = call.key_prefix ? call.key_prefix + "…" : "—";
+        return `<tr>
+          <td class="mono">${fmtDate(call.created_at)}</td>
+          <td>
+            <div style="font-weight:600">${esc(call.name || "未命名")}</div>
+            <div class="hint" style="margin:0">${esc(call.email)}</div>
+          </td>
+          <td class="mono" title="${esc(call.run_id)}">${esc(shortRun)}</td>
+          <td><span class="tag ${call.is_subagent ? "sub" : ""}">${call.is_subagent ? "子代理" : "主"}</span></td>
+          <td>${esc(call.model)}</td>
+          <td>${num(call.prompt_tokens)}</td>
+          <td>${num(call.completion_tokens)}</td>
+          <td><b>${num(call.total_tokens)}</b></td>
+          <td class="mono" style="color:var(--muted)">${esc(key)}</td>
+          <td>${call.has_body ? `<button class="btn btn-ghost btn-sm" data-body="${call.id}">查看</button>` : `<span class="hint">—</span>`}</td>
+        </tr>`;
+      }).join("");
+      panel.innerHTML = `
+        <div class="table-wrap" style="max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
+          <table class="event-table">
+            <thead>
+              <tr><th>时间</th><th>用户</th><th>Run</th><th>类型</th><th>模型</th><th>Prompt</th><th>Completion</th><th>Total</th><th>Key</th><th>正文</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="hint">共 ${num(data.total)} 条，显示最近 ${data.items.length} 条。正文默认保留 7 天；用量流水长期保留。</p>
+      `;
+      panel.querySelectorAll("button[data-body]").forEach((button) => {
+        button.addEventListener("click", () => openCallBody(button.dataset.body));
+      });
+    } catch (error) {
+      panel.innerHTML = `<div class="notice notice-warn">${esc(error.message)}</div>`;
+    }
+  }
+
+  function renderPromptContent(content) {
+    if (typeof content === "string") {
+      return `<pre>${esc(content || "(empty)")}</pre>`;
+    }
+    if (Array.isArray(content)) {
+      return content.map((part) => {
+        if (!part || typeof part !== "object") {
+          return `<pre>${esc(String(part))}</pre>`;
+        }
+        if (part.type === "text") {
+          return `<pre>${esc(part.text || "")}</pre>`;
+        }
+        if (part.type === "image_url") {
+          const url = part.image_url && part.image_url.url;
+          if (url && /^(data:image\/|https?:\/\/)/i.test(url)) {
+            return `<img class="msg-image" src="${esc(url)}" alt="image">`;
+          }
+        }
+        if (part.type === "file") {
+          return `<pre>[file] ${esc(part.file_id || "inline")}</pre>`;
+        }
+        return `<pre>${esc(JSON.stringify(part, null, 2))}</pre>`;
+      }).join("");
+    }
+    return `<pre>${esc(JSON.stringify(content, null, 2))}</pre>`;
+  }
+
+  async function openCallBody(id) {
+    openModal("调用正文", "完整 prompt 与模型回复", `<div class="call-detail" id="call-detail"><div class="empty"><b>加载中…</b></div></div>`);
+    try {
+      const data = await api(`/admin/usage/${id}/body`);
+      const messages = data.request_messages.length
+        ? data.request_messages.map((message) => {
+            let extra = "";
+            if (message.tool_calls) {
+              extra = `<pre>[tool_calls] ${esc(JSON.stringify(message.tool_calls, null, 2))}</pre>`;
+            }
+            return `<div class="msg"><div class="msg-role">${esc(message.role || "?")}</div>${renderPromptContent(message.content)}${extra}</div>`;
+          }).join("")
+        : `<div class="msg"><div class="msg-role">raw</div><pre>${esc(data.request_text || "(unavailable)")}</pre></div>`;
+      const tools = data.tool_calls && data.tool_calls.length
+        ? `<h4>工具调用</h4><pre class="body-pre">${esc(JSON.stringify(data.tool_calls, null, 2))}</pre>`
+        : "";
+      const reasoning = data.reasoning_text
+        ? `<h4>推理 / 思考内容</h4><pre class="body-pre">${esc(data.reasoning_text)}</pre>`
+        : "";
+      const truncated = data.truncated
+        ? `<div class="notice notice-warn" style="margin-bottom:12px">正文超过 CALL_LOG_MAX_CHARS，已截断。</div>`
+        : "";
+      $("#call-detail").innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="hint" style="margin:0">${esc(data.email)} · ${esc(data.run_id)} · ${esc(data.model)} · ${fmtDate(data.created_at)}</div>
+          <button id="back-history" class="btn btn-ghost btn-sm" type="button">← 返回调用历史</button>
+        </div>
+        ${truncated}
+        <h4>Prompt（${data.request_messages.length} 条消息）</h4>
+        <div class="transcript">${messages}</div>
+        <h4>回复正文</h4>
+        <pre class="body-pre">${esc(data.response_text || "(empty)")}</pre>
+        ${reasoning}
+        ${tools}
+      `;
+      $("#back-history").addEventListener("click", openHistory);
+    } catch (error) {
+      $("#call-detail").innerHTML = `<div class="notice notice-warn">${esc(error.message)}</div>`;
+    }
+  }
+
+  // ---------------- live runs ----------------
+  function liveStatusLabel(status) {
+    return ({ running: "运行中", completed: "已完成", failed: "失败", cancelled: "已取消" })[status] || status;
+  }
+
+  function openLiveRuns() {
+    openModal("正在运行的请求", "实时查看已生成内容，每 2 秒刷新", `<div id="live-list"><div class="empty"><b>加载中…</b></div></div>`);
+    let lastSignature = null;
+    const tick = async () => {
+      const panel = $("#live-list");
+      if (!panel || !$("#modal").classList.contains("open")) return;
+      try {
+        const data = await api("/admin/runs/live?limit=50");
+        const signature = data.items
+          .map((run) => [run.run_id, run.status, run.current_step, run.chars].join(":"))
+          .join("|");
+        if (signature === lastSignature) {
+          setTimeout(tick, 2000);
+          return;
+        }
+        lastSignature = signature;
+        const oldWrap = panel.querySelector(".table-wrap");
+        const oldTop = oldWrap ? oldWrap.scrollTop : 0;
+        if (!data.items.length) {
+          panel.innerHTML = `<div class="empty"><b>当前没有运行中的请求</b>新任务启动后会显示在这里。</div>`;
+        } else {
+          const rows = data.items.map((run) => {
+            const preview = (run.content || run.output || "").replace(/\s+/g, " ").slice(0, 100);
+            const previewText = preview || (run.status === "running" ? "等待模型输出…" : "—");
+            return `<tr>
+              <td><span class="tag ${run.status === "running" ? "sub" : ""}">${esc(liveStatusLabel(run.status))}</span></td>
+              <td>${esc(run.email)}</td>
+              <td>${esc(run.model)}</td>
+              <td>${run.current_step}</td>
+              <td style="max-width:300px;color:var(--muted)">${esc(previewText)}</td>
+              <td>${(run.elapsed_ms / 1000).toFixed(1)}s</td>
+              <td><button class="btn btn-ghost btn-sm" type="button" data-live="${esc(run.run_id)}">查看</button></td>
+            </tr>`;
+          }).join("");
+          panel.innerHTML = `
+            <div class="table-wrap" style="max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
+              <table class="event-table">
+                <thead><tr><th>状态</th><th>用户</th><th>模型</th><th>Step</th><th>已生成</th><th>用时</th><th>操作</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            <p class="hint">共 ${data.items.length} 个运行中任务；内容来自当前实例的内存快照。</p>
+          `;
+          panel.querySelectorAll("button[data-live]").forEach((button) => {
+            button.addEventListener("click", () => openLiveRun(button.dataset.live));
+          });
+        }
+        const newWrap = panel.querySelector(".table-wrap");
+        if (newWrap) newWrap.scrollTop = oldTop;
+      } catch (error) {
+        panel.innerHTML = `<div class="notice notice-warn">${esc(error.message)}</div>`;
+      }
+      setTimeout(tick, 2000);
+    };
+    tick();
+  }
+
+  function appendStreamText(el, delta, reset) {
+    if (!el) return;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 12;
+    const oldTop = el.scrollTop;
+    if (reset) {
+      el.replaceChildren();
+      if (delta) el.appendChild(document.createTextNode(delta));
+    } else if (delta) {
+      el.appendChild(document.createTextNode(delta));
+    }
+    if (atBottom) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTop = oldTop;
+    }
+  }
+
+  function renderLiveSteps(steps) {
+    const box = $("#live-steps");
+    const title = $("#live-steps-title");
+    if (!box || !title) return;
+    if (!steps || !steps.length) {
+      box.innerHTML = "";
+      title.style.display = "none";
+      return;
+    }
+    title.style.display = "block";
+    box.innerHTML = steps.map((step) => `
+      <details class="live-step">
+        <summary>Step ${step.step} · ${num(step.usage && step.usage.total_tokens)} tokens</summary>
+        ${step.content ? `<pre class="body-pre">${esc(step.content)}</pre>` : ""}
+        ${step.reasoning ? `<pre class="body-pre">${esc(step.reasoning)}</pre>` : ""}
+        ${step.tool_calls && step.tool_calls.length ? `<pre class="body-pre">${esc(JSON.stringify(step.tool_calls, null, 2))}</pre>` : ""}
+      </details>`).join("");
+  }
+
+  function applyLiveEvent(event) {
+    const meta = $("#live-meta");
+    if (meta) {
+      meta.textContent = [
+        event.email,
+        event.model,
+        liveStatusLabel(event.status),
+        `${(event.elapsed_ms / 1000).toFixed(1)}s`,
+        `step ${event.current_step}`
+      ].filter(Boolean).join(" · ");
+    }
+    if (event.content_delta || event.content_reset) {
+      appendStreamText($("#live-content"), event.content_delta || "", !!event.content_reset);
+    }
+    if (event.reasoning_delta || event.reasoning_reset) {
+      const pre = $("#live-reasoning");
+      const title = $("#live-reasoning-title");
+      if (pre && title) {
+        pre.style.display = "block";
+        title.style.display = "block";
+        appendStreamText(pre, event.reasoning_delta || "", !!event.reasoning_reset);
+      }
+    }
+    if (event.steps) {
+      renderLiveSteps(event.steps);
+    }
+    if (event.status !== "running" && event.output) {
+      const final = $("#live-final");
+      const title = $("#live-final-title");
+      if (final && title) {
+        final.textContent = event.output;
+        final.style.display = "block";
+        title.style.display = "block";
+      }
+    }
+    const error = $("#live-error");
+    if (error) {
+      if (event.error) {
+        error.textContent = event.error;
+        error.className = "notice notice-warn";
+        error.style.display = "block";
+      } else {
+        error.style.display = "none";
+      }
+    }
+    const truncated = $("#live-truncated");
+    if (truncated) {
+      truncated.style.display = event.truncated ? "block" : "none";
+    }
+  }
+
+  function openLiveRun(runId) {
+    openModal("运行中的请求", runId, `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="live-meta" class="hint" style="margin:0">连接中…</div>
+        <button id="back-live" class="btn btn-ghost btn-sm" type="button">← 返回运行中</button>
+      </div>
+      <div id="live-error" class="notice notice-warn" style="display:none;margin:10px 0"></div>
+      <h4>当前已生成内容</h4>
+      <pre id="live-content" class="body-pre" style="min-height:120px"></pre>
+      <h4 id="live-reasoning-title" style="display:none">推理内容</h4>
+      <pre id="live-reasoning" class="body-pre" style="display:none"></pre>
+      <h4 id="live-steps-title" style="display:none">已完成步骤</h4>
+      <div id="live-steps"></div>
+      <div id="live-truncated" class="notice notice-warn" style="display:none;margin-top:10px">内容超过 live 缓存上限，已截断。</div>
+      <h4 id="live-final-title" style="display:none">最终输出</h4>
+      <pre id="live-final" class="body-pre" style="display:none"></pre>
+    `);
+
+    const controller = new AbortController();
+    state.liveAbort = controller;
+
+    $("#back-live").addEventListener("click", () => {
+      controller.abort();
+      openLiveRuns();
+    });
+
+    const consume = async () => {
+      try {
+        const response = await fetch(`/admin/runs/${encodeURIComponent(runId)}/live/stream`, {
+          headers: { "X-Admin-Token": state.token },
+          signal: controller.signal
+        });
+        if (response.status === 401) {
+          logout(true);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let boundary;
+          while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+            const block = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            for (const line of block.split("\n")) {
+              if (!line.startsWith("data:")) continue;
+              const raw = line.slice(5).trim();
+              if (!raw) continue;
+              let event;
+              try {
+                event = JSON.parse(raw);
+              } catch (_) {
+                continue;
+              }
+              if (event.type === "done") return;
+              if (event.type === "error") {
+                const error = $("#live-error");
+                if (error) {
+                  error.textContent = event.message || "live stream error";
+                  error.style.display = "block";
+                }
+                return;
+              }
+              if (event.type === "snapshot") {
+                applyLiveEvent(event);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        const box = $("#live-error");
+        if (box) {
+          box.textContent = error.message || String(error);
+          box.style.display = "block";
+        }
+      } finally {
+        if (state.liveAbort === controller) {
+          state.liveAbort = null;
+        }
+      }
+    };
+
+    consume();
+  }
+
+  // ---------------- search ----------------
+  let searchTimer = null;
+  $("#search").addEventListener("input", (event) => {
+    state.search = event.target.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadAll(), 250);
+  });
+
+  // ---------------- boot ----------------
+  if (state.token) {
+    showApp(true);
+    loadAll().catch(() => logout(true));
+  } else {
+    showApp(false);
+  }
+})();
+</script>
+</body>
+</html>
