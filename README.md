@@ -605,7 +605,8 @@ DESIGN.md               # 设计说明、威胁模型、扩展点
 - 会话不持久化，`history` 由调用方维护。
 - 上下文压缩是有损的，摘要可能丢失细节；关键中间结果建议让 agent 写入 workspace 文件。
 - 子代理顺序执行，不支持一次并行 fan-out；深层嵌套会增加额度消耗与调试难度。
-- 流式仅到事件级（tool/usage/compaction/final），未转发模型 token 级 delta。
+- 业务侧 `/v1/agent/stream` 仍是事件级（tool/usage/compaction/final）；管理台 live SSE 已能看
+  token 级正文/推理增量，但尚未把 token delta 混入业务 SSE。
 - 只有 SQLite；多机部署可换 Postgres，并把 workspace 放到对象存储/共享卷。
 - 未内置请求频率限制、计费金额、模型单价表；当前按用户选的 tokens 维度计量。
 - 不限运行时间意味着长请求可能长期占用资源，生产环境建议在网关层加保护。
@@ -629,3 +630,11 @@ AGENT_MAX_SUBAGENT_DEPTH=2
 
 `0` 表示不限；如果希望保留保护，可改为 `600` / `1800`。并为对应用户设置足够额度
 （例如 20 万 tokens 以上）。
+
+---
+
+## License
+
+本项目采用 **MIT License**，详见 [LICENSE](LICENSE)。
+
+安全策略与漏洞报告方式见 [SECURITY.md](SECURITY.md)。

@@ -7,6 +7,8 @@ name = "mini-harness"
 version = "0.1.0"
 description = "A small, embeddable LLM agent harness with a pluggable sandbox and token quotas."
 readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "DreamIAYN" }]
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -21,6 +23,10 @@ dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 mini-harness = "harness.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/DreamIAYN/miniharness"
+Issues = "https://github.com/DreamIAYN/miniharness/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
